@@ -1,12 +1,8 @@
 from django.db import models
 from datetime import date, datetime
-from ninja import Schema
-from typing import List
 
 
-from django.contrib.postgres.fields import ArrayField
-
-
+from django_jsonform.models.fields import ArrayField
 
 class Skill(models.Model):
     id = models.AutoField(primary_key=True)
@@ -28,7 +24,7 @@ class Item(models.Model):
     name = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.description
+        return self.name
 
 class OrderItem(models.Model):
     order = models.ForeignKey('Order', on_delete=models.CASCADE)
@@ -47,46 +43,3 @@ class Order(models.Model):
     def __str__(self):
         return f"Order {self.id}"
 
-class OrderItemSchema(Schema):
-    id: int
-    item: int
-    quantity: int
-
-class OrderIn(Schema):
-    items: List[int]
-    email: str
-    address: str
-    location: List[float]
-    delivery_time: datetime
-    required_skills: List[int]
-    order_items: List[int]
-
-class OrderOut(Schema):
-    id: int
-    items: List[int]
-    email: str
-    address: str
-    location: List[float]
-    delivery_time: datetime
-    required_skills: List[int]
-    order_items: List[int]
-
-class RouteRequestSchema(Schema):
-    vehicle_ids: List[int]
-    order_ids: List[int]
-
-class SkillIn(Schema):
-    description: str
-
-class SkillOut(Schema):
-    id: int
-    description: str
-
-class VehicleIn(Schema):
-    skills: List[int]
-    capacity: List[int]
-
-class VehicleOut(Schema):
-    id: int
-    skills: List[SkillOut]
-    capacity: List[int]

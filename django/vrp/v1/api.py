@@ -1,5 +1,6 @@
 from ninja import Router
 from .models import *
+from .schema import *
 from typing import List
 router = Router()
 
