@@ -2,3 +2,6 @@
 venv
 .ipynb_checkpoints
 .git
+django/vrp/.vs
+django/vrp/vrp/_pycache_
+django/vrp/v1/_pycache_
