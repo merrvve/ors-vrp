@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 from django_jsonform.models.fields import ArrayField
 
+
 class Skill(models.Model):
     id = models.AutoField(primary_key=True)
     description = models.CharField(max_length=255)
@@ -15,6 +16,9 @@ class Vehicle(models.Model):
     id = models.AutoField(primary_key=True)
     skills = models.ManyToManyField(Skill)
     capacity = ArrayField(models.IntegerField())
+    end = ArrayField(models.FloatField(), size=2, default=[0.0, 0.0])  # Provide a default array of floats
+    start = ArrayField(models.FloatField(), size=2, default=[0.0, 0.0])  # Provide a default array of floats
+    time_window = ArrayField(models.IntegerField(), size=2,  default=[0, 0])
 
     def __str__(self):
         return f"Vehicle {self.id}"
@@ -42,4 +46,3 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order {self.id}"
-

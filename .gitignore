@@ -5,3 +5,4 @@ venv
 django/vrp/.vs
 django/vrp/vrp/__pycache__
 django/vrp/v1/__pycache__
+django/vrp/vrp/.env

@@ -2,6 +2,8 @@ from ninja import Router
 from .models import *
 from .schema import *
 from typing import List
+from v1 import routeoptimizer
+from django.forms.models import model_to_dict
 router = Router()
 
 """ Vehicle CRUD """
@@ -135,11 +137,27 @@ def delete_order(request, order_id: int):
     order.delete()
     return {"success": True}
 
+def serialize_vehicle(vehicle):
+    vehicle_dict=model_to_dict(vehicle)
+    vehicle_dict['skills']=[model_to_dict(skill)['id'] for skill in vehicle_dict['skills']]
+    return vehicle_dict
 
 """  Optimize Routes for given vehicles and orders  """
-@router.get("/optimize-routes")
+@router.post("/optimize-routes")
 def optimize_routes(request, payload: RouteRequestSchema):
-    pass
+    vehicles = Vehicle.objects.filter(id__in=payload.vehicle_ids)
+    vehicles_list=[serialize_vehicle(vehicle) for vehicle in vehicles]
+    data = routeoptimizer.setData(vehicles=vehicles_list)
+    optimized_routes = routeoptimizer.optimize_routes(data)
+
+    return optimized_routes
+
+@router.get("/optimize-routes-test")
+def optimize_routes_test(request):
+    data = routeoptimizer.setData()
+    optimized_routes = routeoptimizer.optimize_routes(data)
+
+    return optimized_routes
 
 
 """  Get Routes By Vehicle Id """
