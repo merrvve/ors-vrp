@@ -2,10 +2,35 @@ import environ
 import datetime
 import openrouteservice as ors
 from openrouteservice import convert
+from .models import *
 # Initialise environment variables
 env = environ.Env()
 environ.Env.read_env()
 ORS_API_KEY=env('ORS_API_KEY')
+
+
+def generate_pickup_delivery_locations(order_ids):
+    result_dict = {}
+
+    for order_id in order_ids:
+        order = Order.objects.get(pk=order_id)
+
+        pickup_delivery_dict = {'pickup': {'location': []}, 'delivery': {'location': []}}
+
+        for order_item in order.orderitem_set.all():
+            # Set delivery location as Order's location
+            pickup_delivery_dict['delivery']['location'].append(order.location)
+
+            # Find the first warehouse with the ordered item and set pickup location
+            warehouses_with_item = Warehouse.objects.filter(items=order_item.item)
+            if warehouses_with_item.exists():
+                warehouse = warehouses_with_item.first()
+                pickup_delivery_dict['pickup']['location'].append(warehouse.location)
+
+        result_dict[order_id] = pickup_delivery_dict
+
+    return result_dict
+
 
 def setData(vehicles = None):
     data = {} 
