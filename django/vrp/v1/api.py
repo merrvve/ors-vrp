@@ -147,13 +147,12 @@ def serialize_vehicle(vehicle):
 def optimize_routes(request, payload: RouteRequestSchema):
     vehicles = Vehicle.objects.filter(id__in=payload.vehicle_ids)
     vehicles_list=[serialize_vehicle(vehicle) for vehicle in vehicles]
-    pickups_and_deliveries = routeoptimizer.generate_pickup_delivery_locations(payload.order_ids)
+    shipments = routeoptimizer.generate_shipments_list(payload.order_ids)    
+    data = routeoptimizer.setData(vehicles=vehicles_list, shipments=shipments)
 
-    
-    #data = routeoptimizer.setData(vehicles=vehicles_list)
-    #optimized_routes = routeoptimizer.optimize_routes(data)
+    optimized_routes = routeoptimizer.optimize_routes(data)
 
-    return pickups_and_deliveries
+    return optimized_routes
 
 @router.get("/optimize-routes-test")
 def optimize_routes_test(request):

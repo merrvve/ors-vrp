@@ -1,5 +1,5 @@
 import environ
-import datetime
+from datetime import datetime
 import openrouteservice as ors
 from openrouteservice import convert
 from .models import *
@@ -7,34 +7,45 @@ from .models import *
 env = environ.Env()
 environ.Env.read_env()
 ORS_API_KEY=env('ORS_API_KEY')
+from django.forms.models import model_to_dict
 
 
-def generate_pickup_delivery_locations(order_ids):
-    result_dict = {}
+
+def generate_shipments_list(order_ids):
+    result_list = []
 
     for order_id in order_ids:
         order = Order.objects.get(pk=order_id)
 
-        pickup_delivery_dict = {'pickup': {'location': []}, 'delivery': {'location': []}}
-
         for order_item in order.orderitem_set.all():
-            # Set delivery location as Order's location
-            pickup_delivery_dict['delivery']['location'].append(order.location)
+            shipment = {
+                "pickup": {
+                    "location": None,
+                    "service": 600,
+                    "time_windows": [[0, 7200]],
+                },
+                "delivery": {
+                    "location": order.location, 
+                    "service": 600,
+                    "time_windows": [order.delivery_time_window],
+                },
+                "amount": [order_item.amount, 0],
+                "skills": [int(skill.id) for skill in order_item.item.required_skills.all()],
+                "priority": 0,
+            }
 
-            # Find the first warehouse with the ordered item and set pickup location
             warehouses_with_item = Warehouse.objects.filter(items=order_item.item)
             if warehouses_with_item.exists():
                 warehouse = warehouses_with_item.first()
-                pickup_delivery_dict['pickup']['location'].append(warehouse.location)
+                shipment["pickup"]["location"] = warehouse.location
+            result_list.append(shipment)
 
-        result_dict[order_id] = pickup_delivery_dict
+    return result_list
 
-    return result_dict
-
-
-def setData(vehicles = None):
+def setData(vehicles = None, shipments = None):
+    print(shipments)
     data = {} 
-    data['start_time']= datetime.datetime.now()
+    data['start_time']= datetime.now()
     
     #örnek lokasyonlar
     locations= [ 
@@ -96,44 +107,47 @@ def setData(vehicles = None):
         data['vehicles_list']=vehicles
 
     data['num_vehicles']=len(data['vehicles_list'])
-    data['shipment_list'] = [
-      {
-        "pickup": { "location": locations[1], "service": 600,"time_windows":[[0,7200]]},
-        "delivery": { "location": locations[4], "service": 600,"time_windows":[[0,7200]]},
-          "amount": [10,10],
-          "skills": [0],
-          "priority": 0,
-      },
-      {
-        "pickup": { "location": locations[3], "service": 600,"time_windows":[[0,7200]]}, 
-       "delivery": { "location": locations[6], "service": 600,"time_windows":[[0,7200]]},
-          "amount": [5,0],
-          "skills": [2],
-          "priority": 0,
-      },
-        {
-        "pickup": { "location": locations[2], "service": 600,"time_windows":[[0,7200]]}, 
-       "delivery": { "location": locations[8], "service": 600,"time_windows":[[0,7200]]},
-          "amount": [2,0],
-          "skills": [1,2],
-          "priority": 0,
-      },
-        {
-        "pickup": { "location": locations[4], "service": 600,"time_windows":[[0,7200]]}, 
-       "delivery": { "location": locations[7], "service": 600,"time_windows":[[0,7200]]},
-          "amount": [2,0],
-          "skills": [0],
-          "priority": 0,
-      },
-         {
-        "pickup": { "location": locations[0], "service": 600,"time_windows":[[0,7200]]}, 
-       "delivery": { "location": locations[6], "service": 600,"time_windows":[[0,7200]]},
-          "amount": [3,0],
-          "skills": [0],
-          "priority": 0,
-      },
-    ]
 
+    if shipments is None:
+        data['shipment_list'] = [
+          {
+            "pickup": { "location": locations[1], "service": 600,"time_windows":[[0,7200]]},
+            "delivery": { "location": locations[4], "service": 600,"time_windows":[[0,7200]]},
+              "amount": [10,10],
+              "skills": [0],
+              "priority": 0,
+          },
+          {
+            "pickup": { "location": locations[3], "service": 600,"time_windows":[[0,7200]]}, 
+           "delivery": { "location": locations[6], "service": 600,"time_windows":[[0,7200]]},
+              "amount": [5,0],
+              "skills": [2],
+              "priority": 0,
+          },
+            {
+            "pickup": { "location": locations[2], "service": 600,"time_windows":[[0,7200]]}, 
+           "delivery": { "location": locations[8], "service": 600,"time_windows":[[0,7200]]},
+              "amount": [2,0],
+              "skills": [1,2],
+              "priority": 0,
+          },
+            {
+            "pickup": { "location": locations[4], "service": 600,"time_windows":[[0,7200]]}, 
+           "delivery": { "location": locations[7], "service": 600,"time_windows":[[0,7200]]},
+              "amount": [2,0],
+              "skills": [0],
+              "priority": 0,
+          },
+             {
+            "pickup": { "location": locations[0], "service": 600,"time_windows":[[0,7200]]}, 
+           "delivery": { "location": locations[6], "service": 600,"time_windows":[[0,7200]]},
+              "amount": [3,0],
+              "skills": [0],
+              "priority": 0,
+          },
+        ]
+    else:
+        data['shipment_list']= shipments
     return data
 
 def setOrsRequest(data):

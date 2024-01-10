@@ -25,7 +25,7 @@ class Vehicle(models.Model):
 class Item(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
-
+    required_skills = models.ManyToManyField(Skill)
     def __str__(self):
         return self.name
 
@@ -33,6 +33,7 @@ class OrderItem(models.Model):
     order = models.ForeignKey('Order', on_delete=models.CASCADE)
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     created_date = models.DateTimeField(default=datetime.now)
+    amount = models.PositiveIntegerField(default=0)
 
 class Order(models.Model):
     id = models.AutoField(primary_key=True)
@@ -41,7 +42,7 @@ class Order(models.Model):
     email = models.EmailField()
     address = models.CharField(max_length=255)
     location = ArrayField(models.FloatField(), size=2)
-    required_skills = models.ManyToManyField(Skill)
+ #   required_skills = models.ManyToManyField(Skill)
     delivery_time_window = ArrayField(models.IntegerField(), size=2, default=list)
     def __str__(self):
         return f"Order {self.id}"
