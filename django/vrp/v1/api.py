@@ -6,6 +6,100 @@ from v1 import routeoptimizer
 from django.forms.models import model_to_dict
 router = Router()
 
+
+router = Router()
+
+@router.post("/fulfillments")
+def create_fulfillments(request, fulfillments: List[FulfillmentSchema]):
+    """    Recieves multiple fulfillments and adds to database.     Returns the created fulfillments"""
+    created_fulfillments = []
+    for fulfillment_data in fulfillments:
+        destination_data = fulfillment_data.pop("destination")
+        fulfillment_line_items_data = fulfillment_data.pop("fulfillment_line_items")
+        
+        # Create destination object
+        destination = Destination.objects.create(**destination_data)
+        
+        # Create fulfillment object
+        fulfillment = Fulfillment.objects.create(destination=destination, **fulfillment_data)
+        
+        # Create fulfillment line items
+        for line_item_data in fulfillment_line_items_data:
+            FulfillmentLineItem.objects.create(fulfillment=fulfillment, **line_item_data)
+        
+        created_fulfillments.append(fulfillment)
+    
+    return created_fulfillments
+
+
+@router.post("/fulfillments", response=FulfillmentOutSchema)
+def create_fulfillment(request, payload: FulfillmentInSchema):
+    """ Create fulfillment and return to the created fulfillment """
+    destination = get_object_or_404(Destination, pk=payload.destination)
+    fulfillment = Fulfillment.objects.create(destination=destination, **payload.dict())
+    fulfillment.fulfillment_line_items.set(payload.fulfillment_line_items)
+    return fulfillment
+
+@router.get("/fulfillments/{fulfillment_id}", response=FulfillmentOutSchema)
+def get_fulfillment(request, fulfillment_id: str):
+    """ Get fulfillment by id  and return to the fulfillment or 404"""
+    fulfillment = get_object_or_404(Fulfillment, pk=fulfillment_id)
+    return fulfillment
+
+@router.put("/fulfillments/{fulfillment_id}", response=FulfillmentOutSchema)
+def update_fulfillment(request, fulfillment_id: str, payload: FulfillmentUpdateSchema):
+    """ Update fulfillment and return to the updated fulfillment """
+    fulfillment = get_object_or_404(Fulfillment, pk=fulfillment_id)
+    for key, value in payload.dict().items():
+        setattr(fulfillment, key, value)
+    fulfillment.save()
+    return fulfillment
+
+@router.delete("/fulfillments/{fulfillment_id}")
+def delete_fulfillment(request, fulfillment_id: str):
+    """ Delete fulfillment and return true or 404 """
+    fulfillment = get_object_or_404(Fulfillment, pk=fulfillment_id)
+    fulfillment.delete()
+    return {"success": True}
+
+
+def serialize_vehicle(vehicle):
+    """ Convert vehicle object to json-friendly dict for route optimizer function """
+    vehicle_dict=model_to_dict(vehicle)
+    vehicle_dict['skills']=[model_to_dict(skill)['id'] for skill in vehicle_dict['skills']]
+    return vehicle_dict
+
+@router.post("/optimize-routes")
+def optimize_routes(request, payload: RouteRequestSchema):
+    """  Creates routes for given vehicle ids, 
+    given fulfillment ids and route date. 
+    Saves route to database and returns the created route object  """
+
+    vehicles = Vehicle.objects.filter(id__in=payload.vehicle_ids)
+    vehicles_list=[serialize_vehicle(vehicle) for vehicle in vehicles]
+    shipments_list = routeoptimizer.create_shipments_from_fulfillments(payload.fulfillment_ids)    
+    
+    optimized_routes = routeoptimizer.optimize_routes(vehicles_list, shipments_list)
+
+    return vehicles
+
+
+"""  Get Routes By Vehicle Id """
+@router.get("/route-by-vehicle/{vehicle_id}")
+def get_route_by_vehicle():
+    pass
+
+"""  Get Routes By Id """
+@router.get("/route-by-id/{route_id}")
+def get_route_by_id():
+    pass
+
+
+
+
+
+
+
 """ Vehicle CRUD """
 @router.post("/vehicles")
 def create_vehicle(request, payload: VehicleIn):
@@ -72,105 +166,5 @@ def delete_skill(request, skill_id: int):
     skill = get_object_or_404(Skill, id=skill_id)
     skill.delete()
     return {"success": True}
-
-""" Orders CRUD """
-@router.post("/orders")
-def create_order(request, payload: OrderIn):
-    items = Item.objects.filter(id__in=payload.items)
-    skills = Skill.objects.filter(id__in=payload.required_skills)
-
-    order = Order.objects.create(
-        email=payload.email,
-        address=payload.address,
-        location=payload.location,
-        delivery_time=payload.delivery_time
-    )
-
-    for item_data in payload.order_items:
-        item = Item.objects.get(id=item_data['item']['id'])
-        OrderItem.objects.create(order=order, item=item, quantity=item_data['quantity'])
-
-    order.required_skills.set(skills)
-    order.save()
-
-    return {"id": order.id}
-
-@router.get("/orders/{order_id}", response=OrderOut)
-def get_order(request, order_id: int):
-    order = get_object_or_404(Order, id=order_id)
-    return order
-
-@router.get("/orders", response=List[OrderOut])
-def list_orders(request):
-    qs = Order.objects.all()
-    return qs
-
-@router.put("/orders/{order_id}")
-def update_order(request, order_id: int, payload: OrderIn):
-    order = get_object_or_404(Order, id=order_id)
-
-    # Update Order fields
-    order.email = payload.email
-    order.address = payload.address
-    order.location = payload.location
-    order.delivery_time = payload.delivery_time
-
-    # Clear existing order items
-    OrderItem.objects.filter(order=order).delete()
-
-    # Add new order items
-    for item_data in payload.order_items:
-        item = Item.objects.get(id=item_data['item']['id'])
-        OrderItem.objects.create(order=order, item=item, quantity=item_data['quantity'])
-
-    # Update required skills
-    skills = Skill.objects.filter(id__in=payload.required_skills)
-    order.required_skills.set(skills)
-
-    order.save()
-
-    return {"success": True}
-
-@router.delete("/orders/{order_id}")
-def delete_order(request, order_id: int):
-    order = get_object_or_404(Order, id=order_id)
-    order.delete()
-    return {"success": True}
-
-def serialize_vehicle(vehicle):
-    vehicle_dict=model_to_dict(vehicle)
-    vehicle_dict['skills']=[model_to_dict(skill)['id'] for skill in vehicle_dict['skills']]
-    return vehicle_dict
-
-"""  Optimize Routes for given vehicles and orders  """
-@router.post("/optimize-routes")
-def optimize_routes(request, payload: RouteRequestSchema):
-    vehicles = Vehicle.objects.filter(id__in=payload.vehicle_ids)
-    vehicles_list=[serialize_vehicle(vehicle) for vehicle in vehicles]
-    shipments = routeoptimizer.generate_shipments_list(payload.order_ids)    
-    data = routeoptimizer.setData(vehicles=vehicles_list, shipments=shipments)
-
-    optimized_routes = routeoptimizer.optimize_routes(data)
-
-    return optimized_routes
-
-@router.get("/optimize-routes-test")
-def optimize_routes_test(request):
-    data = routeoptimizer.setData()
-    optimized_routes = routeoptimizer.optimize_routes(data)
-
-    return optimized_routes
-
-
-"""  Get Routes By Vehicle Id """
-@router.get("/route-by-vehicle/{vehicle_id}")
-def get_route_by_vehicle():
-    pass
-
-"""  Get Routes By Id """
-@router.get("/route-by-id/{route_id}")
-def get_route_by_id():
-    pass
-
 
 
