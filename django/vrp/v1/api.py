@@ -9,7 +9,7 @@ router = Router()
 
 router = Router()
 
-@router.post("/fulfillments")
+@router.post("/fulfillments", tags=["Fulfillments"])
 def create_fulfillments(request, fulfillments: List[FulfillmentSchema]):
     """    Recieves multiple fulfillments and adds to database.     Returns the created fulfillments"""
     created_fulfillments = []
@@ -32,7 +32,7 @@ def create_fulfillments(request, fulfillments: List[FulfillmentSchema]):
     return created_fulfillments
 
 
-@router.post("/fulfillments", response=FulfillmentOutSchema)
+@router.post("/fulfillments", response=FulfillmentOutSchema, tags=["Fulfillments"])
 def create_fulfillment(request, payload: FulfillmentInSchema):
     """ Create fulfillment and return to the created fulfillment """
     destination = get_object_or_404(Destination, pk=payload.destination)
@@ -40,13 +40,13 @@ def create_fulfillment(request, payload: FulfillmentInSchema):
     fulfillment.fulfillment_line_items.set(payload.fulfillment_line_items)
     return fulfillment
 
-@router.get("/fulfillments/{fulfillment_id}", response=FulfillmentOutSchema)
+@router.get("/fulfillments/{fulfillment_id}", response=FulfillmentOutSchema, tags=["Fulfillments"])
 def get_fulfillment(request, fulfillment_id: str):
     """ Get fulfillment by id  and return to the fulfillment or 404"""
     fulfillment = get_object_or_404(Fulfillment, pk=fulfillment_id)
     return fulfillment
 
-@router.put("/fulfillments/{fulfillment_id}", response=FulfillmentOutSchema)
+@router.put("/fulfillments/{fulfillment_id}", response=FulfillmentOutSchema, tags=["Fulfillments"])
 def update_fulfillment(request, fulfillment_id: str, payload: FulfillmentUpdateSchema):
     """ Update fulfillment and return to the updated fulfillment """
     fulfillment = get_object_or_404(Fulfillment, pk=fulfillment_id)
@@ -55,7 +55,7 @@ def update_fulfillment(request, fulfillment_id: str, payload: FulfillmentUpdateS
     fulfillment.save()
     return fulfillment
 
-@router.delete("/fulfillments/{fulfillment_id}")
+@router.delete("/fulfillments/{fulfillment_id}", tags=["Fulfillments"])
 def delete_fulfillment(request, fulfillment_id: str):
     """ Delete fulfillment and return true or 404 """
     fulfillment = get_object_or_404(Fulfillment, pk=fulfillment_id)
@@ -69,11 +69,10 @@ def serialize_vehicle(vehicle):
     vehicle_dict['skills']=[model_to_dict(skill)['id'] for skill in vehicle_dict['skills']]
     return vehicle_dict
 
-@router.post("/optimize-routes")
+@router.post("/optimize-routes", tags=["Routes"])
 def optimize_routes(request, payload: RouteRequestSchema):
-    """  Creates routes for given vehicle ids, 
-    given fulfillment ids and route date. 
-    Saves route to database and returns the optimized_routes response  """
+    """  Creates routes for specified vehicles, fulfillments and route date. 
+    Saves routes to database and returns the optimized_routes response from ors """
 
     # Create vehicles and shipment objects for ors request
     vehicles = Vehicle.objects.filter(id__in=payload.vehicle_ids)
@@ -90,16 +89,16 @@ def optimize_routes(request, payload: RouteRequestSchema):
 
 
 """  Get Routes By Vehicle Id """
-@router.get("/route/{vehicle_id}/{job_date}")
+@router.get("/route/{vehicle_id}/{job_date}", tags=["Routes"])
 def get_route(request, vehicle_id: int, job_date: date):
-    """ Get a route of a vehicle for a given job date or return 404 """
+    """ Get the route of the vehicle for the given job date or return 404 """
     route = get_object_or_404(Route, vehicle_id=vehicle_id, job_date=job_date)
     return route
 
 
-@router.put("/update_delivery_status/{fulfillment_id}")
+@router.put("/update_delivery_status/{fulfillment_id}", tags=["Fulfillments"])
 def update_delivery_status(request, fulfillment_id: str, delivered: bool, status: str):
-    """ Update delivery status return success or error messages """
+    """ Update delivery status. return success or error message """
     try:
         fulfillment = Fulfillment.objects.get(id=fulfillment_id)
         fulfillment.delivered = delivered
@@ -114,9 +113,9 @@ def update_delivery_status(request, fulfillment_id: str, delivered: bool, status
         return {"error": str(e)}
 
 
-@router.get("/fulfillment_delivery_status/{fulfillment_id}")
+@router.get("/fulfillment_delivery_status/{fulfillment_id}", tags=["Fulfillments"])
 def get_fulfillment_delivery_status(request, fulfillment_id: str):
-    """ Gets delivery status of a fulfillment returns delivery status data or error message """
+    """ Gets delivery status of a fulfillment. returns delivery status data or error message """
     try:
         fulfillment = Fulfillment.objects.get(id=fulfillment_id)
         delivery_status = {
@@ -131,64 +130,24 @@ def get_fulfillment_delivery_status(request, fulfillment_id: str):
     except Exception as e:
         return {"error": str(e)}
 
-
-
-
-
-
-""" Vehicle CRUD """
-@router.post("/vehicles")
-def create_vehicle(request, payload: VehicleIn):
-    skills = Skill.objects.filter(id__in=payload.skills)
-    vehicle = Vehicle.objects.create()
-    vehicle.skills.set(skills)
-    vehicle.capacity = payload.capacity
-    vehicle.save()
-    return {"id": vehicle.id}
-
-@router.get("/vehicles/{vehicle_id}", response=VehicleOut)
-def get_vehicle(request, vehicle_id: int):
-    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
-    return vehicle
-
-@router.get("/vehicles", response=List[VehicleOut])
-def list_vehicles(request):
-    qs = Vehicle.objects.all()
-    return qs
-
-@router.put("/vehicles/{vehicle_id}")
-def update_vehicle(request, vehicle_id: int, payload: VehicleIn):
-    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
-    skills = Skill.objects.filter(id__in=payload.skills)
-    vehicle.skills.set(skills)
-    vehicle.capacity = payload.capacity
-    vehicle.save()
-    return {"success": True}
-
-@router.delete("/vehicles/{vehicle_id}")
-def delete_vehicle(request, vehicle_id: int):
-    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
-    vehicle.delete()
-    return {"success": True}
-
 """ Skills CRUD """
 
-@router.post("/skills")
+@router.post("/skills", tags=["Skills"])
 def create_skill(request, payload: SkillIn):
     skill = Skill.objects.create(**payload.dict())
     return {"id": skill.id}
 
-@router.get("/skills/{skill_id}", response=SkillOut)
+@router.get("/skills/{skill_id}", response=SkillOut, tags=["Skills"])
 def get_skill(request, skill_id: int):
     skill = get_object_or_404(Skill, id=skill_id)
     return skill
 
-@router.get("/skills", response=List[SkillOut])
+@router.get("/skills", response=List[SkillOut], tags=["Skills"])
 def list_skills(request):
     qs = Skill.objects.all()
     return qs
 
-@router.put("/skills/{skill_id}")
+@router.put("/skills/{skill_id}", tags=["Skills"])
 def update_skill(request, skill_id: int, payload: SkillIn):
     skill = get_object_or_404(skill, id=skill_id)
     skills = Skill.objects.filter(id__in=payload.skills)
@@ -197,10 +156,53 @@ def update_skill(request, skill_id: int, payload: SkillIn):
     skill.save()
     return {"success": True}
 
-@router.delete("/skills/{skill_id}")
+@router.delete("/skills/{skill_id}", tags=["Skills"])
 def delete_skill(request, skill_id: int):
     skill = get_object_or_404(Skill, id=skill_id)
     skill.delete()
     return {"success": True}
 
 
+
+
+""" Vehicle CRUD """
+
+
+@router.post("/vehicles", tags=["Vehicles"])
+def create_vehicle(request, vehicle_data: VehicleSchemaCreate):
+    skills = Skill.objects.filter(id__in=vehicle_data.skills)
+    vehicle = Vehicle.objects.create(
+        capacity=vehicle_data.capacity,
+        end=vehicle_data.end,
+        start=vehicle_data.start,
+        time_window=vehicle_data.time_window
+    )
+    vehicle.skills.set(skills)
+    return vehicle
+
+
+@router.get("/vehicles/{vehicle_id}", tags=["Vehicles"])
+def read_vehicle(request, vehicle_id: int):
+    vehicle = Vehicle.objects.get(id=vehicle_id)
+    return vehicle
+
+
+@router.put("/vehicles/{vehicle_id}", tags=["Vehicles"])
+def update_vehicle(request, vehicle_id: int, vehicle_data: VehicleSchemaUpdate):
+    vehicle = Vehicle.objects.get(id=vehicle_id)
+    vehicle.capacity = vehicle_data.capacity
+    vehicle.end = vehicle_data.end
+    vehicle.start = vehicle_data.start
+    vehicle.time_window = vehicle_data.time_window
+    vehicle.save()
+    vehicle.skills.clear()
+    skills = Skill.objects.filter(id__in=vehicle_data.skills)
+    vehicle.skills.set(skills)
+    return vehicle
+
+
+@router.delete("/vehicles/{vehicle_id}", tags=["Vehicles"])
+def delete_vehicle(request, vehicle_id: int):
+    vehicle = Vehicle.objects.get(id=vehicle_id)
+    vehicle.delete()
+    return {"message": "Vehicle deleted successfully"}

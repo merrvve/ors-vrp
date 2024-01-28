@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from ninja import Schema
 from typing import List
+from .models import Vehicle
 
 class DestinationSchema(Schema):
     address1: str
@@ -86,13 +87,23 @@ class SkillOut(Schema):
     id: int
     description: str
 
-class VehicleIn(Schema):
+
+class VehicleSchemaCreate(Schema):
     skills: List[int]
     capacity: List[int]
+    end: List[float]
+    start: List[float]
+    time_window: List[int]
 
-class VehicleOut(Schema):
+class VehicleSchemaUpdate(VehicleSchemaCreate):
+    pass
+
+class VehicleSchema(Schema):
     id: int
-    skills: List[SkillOut]
+    skills: List[int]
     capacity: List[int]
+    end: List[float]
+    start: List[float]
+    time_window: List[int]
 
 

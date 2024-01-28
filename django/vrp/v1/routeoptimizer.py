@@ -18,20 +18,17 @@ def create_shipments_from_fulfillments(fulfillment_ids):
         shipment_data = {
             "pickup": {
                 "description": fulfillment_id,
-                "location": [0.0, 0.0],  # Default pickup location
+                "location": [29.02817756507183,41.02918762529382],  # Default pickup location
                 "service": 600, # Default service time, set later
-                "setup": 600, # Default setup time in seconds, set later
                 "time_windows": None # Pickup time window, not set yet
             },
             "delivery": {
                 "description": fulfillment_id,
-                "location": [float(fulfillment.destination.longitude), float(fulfillment.destination.latitude)],  # Delivery location from destination
+                "location": [ float(fulfillment.destination.longitude),float(fulfillment.destination.latitude)],  # Delivery location from destination
                 "service": 600, # Default service time, set later
-                "setup": 600, # Default setup time in seconds, set later
                 "time_windows": None # Delivery time window, not set yet
-
             },
-            "amount": fulfillment.total_quantity,
+            "amount": [fulfillment.total_quantity],
             "skills": [],  # Not used yet
             "priority": 0,  # Not used yet
         }
@@ -46,25 +43,21 @@ def setOrsRequest(vehicles_list, shipments_list):
     request['vehicles']=[ors.optimization.Vehicle(**vehicle) for vehicle in vehicles_list]
     related_ids = {}
     request['shipments'] = []
-    for idx, shipment in enumerate(shipment_list):
+    for idx, shipment in enumerate(shipments_list):
         pickup_step = ors.optimization.ShipmentStep(
             id=idx,
-            #description=shipment["pickup"]["description"],
             location=shipment["pickup"]["location"],
             service=shipment["pickup"]["service"],  
-            setup=shipment["pickup"]["setup"],  
             time_windows=shipment["pickup"]['time_windows']
         )
         delivery_step = ors.optimization.ShipmentStep(
             id=idx,
-            #description=shipment["delivery"]["description"],
             location=shipment["delivery"]["location"],
             service=shipment["delivery"]["service"], 
-            setup=shipment["delivery"]["setup"], 
             time_windows=shipment["delivery"]['time_windows']
         )
         # save related fulfillment and shipment ids
-        related_ids[idx]= shipment["pickup"]["description"]))
+        related_ids[idx]= shipment["pickup"]["description"]
         
         request['shipments'].append(ors.optimization.Shipment(
             pickup=pickup_step,
@@ -81,25 +74,30 @@ def setOrsRequest(vehicles_list, shipments_list):
 
 def saveRoutes(optimized_routes, planned_date):
     """ Retrieves routes from ORS response and saves to db. returns saved routes as a list """
-    route_data_list=[]
-    
+    route_data_list = []
+
     # Retrieve necessary fields for each route
     for route in optimized_routes['routes']:
-        route_data={}
-        route_data['vehicle']=route['vehicle']
-        vehicle = Vehicle.objects.get(id=route['vehicle'])
-        route_data['job_date']=planned_date
-        route_data['fulfillment_ids']=set()
-        route_data['steps']=[]
-        route_data['googleLink']=""         #empty for now, set later
+        route_data = {}
+        route_data['vehicle'] = Vehicle.objects.get(id=route['vehicle']) 
+        route_data['job_date'] = planned_date
+        ids_set= set()
+        route_data['fulfillment_ids'] = []
+        route_data['steps'] = []
+        route_data['googlelink'] = ""  # empty for now, set later
         for step in route['steps']:
             route_data['steps'].append(step['location'])
-            if(step['type'] != 'start' and  step['type']!='end'):
-                route_data['fulfillment_ids'].add.optimized_routes['related_ids'][step['id']])
-        route_data_list.append(route_data)   
-        route_db = Route(vehicle=vehicle, **route_data)
+            if step['type'] != 'start' and step['type'] != 'end':
+                ids_set.add(optimized_routes['related_ids'][step['id']])
+        route_data['fulfillment_ids']=list(ids_set)
+        route_data_list.append(route_data)
+    
+        # Create and save Route object
+        route_db = Route(**route_data)
         route_db.save()
+
     return route_data_list
+
 
 
 def optimize_routes(vehicles, shipments):
