@@ -39,6 +39,7 @@ class Route(models.Model):
     job_date = models.DateField()
     steps = ArrayField(ArrayField(models.FloatField(), size=2))
     googlelink=models.TextField(max_length=2048, default='')
+    fulfillment_ids=ArrayField(models.CharField(max_length=36))
 
     def __str__(self):
         return f"Route for {self.vehicle} on {self.job_date}"
@@ -87,3 +88,4 @@ class Fulfillment(models.Model):
     delivered = models.BooleanField(default=False)
     destination = models.ForeignKey(Destination, on_delete=models.CASCADE)
     fulfillment_line_items = models.ManyToManyField(FulfillmentLineItem)
+

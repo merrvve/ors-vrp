@@ -44,27 +44,28 @@ def setOrsRequest(vehicles_list, shipments_list):
     """ Set vehicles and shipments as ors objects for route optimizer function """
     request={}
     request['vehicles']=[ors.optimization.Vehicle(**vehicle) for vehicle in vehicles_list]
-    
+    related_ids = {}
     request['shipments'] = []
     for idx, shipment in enumerate(shipment_list):
         pickup_step = ors.optimization.ShipmentStep(
             id=idx,
-            description=shipment["pickup"]["description"],
+            #description=shipment["pickup"]["description"],
             location=shipment["pickup"]["location"],
             service=shipment["pickup"]["service"],  
             setup=shipment["pickup"]["setup"],  
             time_windows=shipment["pickup"]['time_windows']
-
         )
         delivery_step = ors.optimization.ShipmentStep(
             id=idx,
-            description=shipment["delivery"]["description"],
+            #description=shipment["delivery"]["description"],
             location=shipment["delivery"]["location"],
             service=shipment["delivery"]["service"], 
             setup=shipment["delivery"]["setup"], 
             time_windows=shipment["delivery"]['time_windows']
         )
-
+        # save related fulfillment and shipment ids
+        related_ids[idx]= shipment["pickup"]["description"]))
+        
         request['shipments'].append(ors.optimization.Shipment(
             pickup=pickup_step,
             delivery=delivery_step,
@@ -73,12 +74,38 @@ def setOrsRequest(vehicles_list, shipments_list):
             priority=shipment['priority'],
             
         ))
+    request['related_ids']=related_ids #save fulfillment and shipment ids
 
     return request
+
+
+def saveRoutes(optimized_routes, planned_date):
+    """ Retrieves routes from ORS response and saves to db. returns saved routes as a list """
+    route_data_list=[]
+    
+    # Retrieve necessary fields for each route
+    for route in optimized_routes['routes']:
+        route_data={}
+        route_data['vehicle']=route['vehicle']
+        vehicle = Vehicle.objects.get(id=route['vehicle'])
+        route_data['job_date']=planned_date
+        route_data['fulfillment_ids']=set()
+        route_data['steps']=[]
+        route_data['googleLink']=""         #empty for now, set later
+        for step in route['steps']:
+            route_data['steps'].append(step['location'])
+            if(step['type'] != 'start' and  step['type']!='end'):
+                route_data['fulfillment_ids'].add.optimized_routes['related_ids'][step['id']])
+        route_data_list.append(route_data)   
+        route_db = Route(vehicle=vehicle, **route_data)
+        route_db.save()
+    return route_data_list
+
 
 def optimize_routes(vehicles, shipments):
     """  Main route optimizer function. Creates optimized routes for given vehicles and shipments. returns optimized routes dictionary """
     client = ors.Client(key=ORS_API_KEY) # Create ors client
     ors_request=setOrsRequest(vehicles, shipments) # Create objects for ors request
     optimized_results = client.optimization( vehicles=ors_request['vehicles'], shipments=ors_request['shipments'], geometry=True) #main function
+    optimized_results['related_ids']=ors_request['related_ids']
     return optimized_results

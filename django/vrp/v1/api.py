@@ -73,27 +73,63 @@ def serialize_vehicle(vehicle):
 def optimize_routes(request, payload: RouteRequestSchema):
     """  Creates routes for given vehicle ids, 
     given fulfillment ids and route date. 
-    Saves route to database and returns the created route object  """
+    Saves route to database and returns the optimized_routes response  """
 
+    # Create vehicles and shipment objects for ors request
     vehicles = Vehicle.objects.filter(id__in=payload.vehicle_ids)
     vehicles_list=[serialize_vehicle(vehicle) for vehicle in vehicles]
     shipments_list = routeoptimizer.create_shipments_from_fulfillments(payload.fulfillment_ids)    
     
+    # Optimize routes with ors client
     optimized_routes = routeoptimizer.optimize_routes(vehicles_list, shipments_list)
 
-    return vehicles
+    # Retrieve routes from response and save to db
+    routeoptimizer.saveRoutes(optimized_routes, payload.planned_date)
+
+    return optimized_routes
 
 
 """  Get Routes By Vehicle Id """
-@router.get("/route-by-vehicle/{vehicle_id}")
-def get_route_by_vehicle():
-    pass
+@router.get("/route/{vehicle_id}/{job_date}")
+def get_route(request, vehicle_id: int, job_date: date):
+    """ Get a route of a vehicle for a given job date or return 404 """
+    route = get_object_or_404(Route, vehicle_id=vehicle_id, job_date=job_date)
+    return route
 
-"""  Get Routes By Id """
-@router.get("/route-by-id/{route_id}")
-def get_route_by_id():
-    pass
 
+@router.put("/update_delivery_status/{fulfillment_id}")
+def update_delivery_status(request, fulfillment_id: str, delivered: bool, status: str):
+    """ Update delivery status return success or error messages """
+    try:
+        fulfillment = Fulfillment.objects.get(id=fulfillment_id)
+        fulfillment.delivered = delivered
+        fulfillment.status = status
+        fulfillment.delivered_at = datetime.now() if delivered else None  # Set delivered_at only if delivered is True
+        fulfillment.updated_at = datetime.now()
+        fulfillment.save()
+        return {"message": "Delivery status updated successfully"}
+    except Fulfillment.DoesNotExist:
+        return {"error": f"Fulfillment with ID {fulfillment_id} does not exist"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.get("/fulfillment_delivery_status/{fulfillment_id}")
+def get_fulfillment_delivery_status(request, fulfillment_id: str):
+    """ Gets delivery status of a fulfillment returns delivery status data or error message """
+    try:
+        fulfillment = Fulfillment.objects.get(id=fulfillment_id)
+        delivery_status = {
+            "id": fulfillment.id,
+            "delivered": fulfillment.delivered,
+            "delivered_at": fulfillment.delivered_at,
+            "status": fulfillment.status
+        }
+        return delivery_status
+    except Fulfillment.DoesNotExist:
+        return {"error": f"Fulfillment with ID {fulfillment_id} does not exist"}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 
