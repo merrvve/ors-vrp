@@ -75,13 +75,11 @@ def setOrsRequest(vehicles_list, shipments_list):
 def saveRoutes(optimized_routes, planned_date):
     """ Retrieves routes from ORS response and saves to db. returns saved routes as a list """
     route_data_list = []
-
-    # Retrieve necessary fields for each route
     for route in optimized_routes['routes']:
-        route_data = {}
-        route_data['vehicle'] = Vehicle.objects.get(id=route['vehicle']) 
+        route_data ={}
+        route_data['vehicle'] = Vehicle.objects.get(id=route['vehicle'])
         route_data['job_date'] = planned_date
-        ids_set= set()
+        ids_set = set()
         route_data['fulfillment_ids'] = []
         route_data['steps'] = []
         route_data['googlelink'] = ""  # empty for now, set later
@@ -89,15 +87,24 @@ def saveRoutes(optimized_routes, planned_date):
             route_data['steps'].append(step['location'])
             if step['type'] != 'start' and step['type'] != 'end':
                 ids_set.add(optimized_routes['related_ids'][step['id']])
-        route_data['fulfillment_ids']=list(ids_set)
+        route_data['fulfillment_ids'] = list(ids_set)
+        existing_route = Route.objects.filter(vehicle_id=route['vehicle'], job_date=planned_date).first()
+
+        if existing_route:
+            # Update existing route if needed
+            existing_route.steps = route_data['steps']
+            existing_route.googlelink = route_data['googlelink']
+            existing_route.fulfillment_ids = route_data['fulfillment_ids']
+            existing_route.save()
+        else:
+            # Create new route
+            
+            route_db = Route(**route_data)
+            route_db.save()
         route_data_list.append(route_data)
-    
-        # Create and save Route object
-        route_db = Route(**route_data)
-        route_db.save()
 
     return route_data_list
-
+    
 
 
 def optimize_routes(vehicles, shipments):

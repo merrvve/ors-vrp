@@ -35,7 +35,7 @@ class Warehouse(models.Model):
 
 class Route(models.Model):
     id = models.AutoField(primary_key=True)
-    vehicle = models.OneToOneField(Vehicle, on_delete=models.CASCADE)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT)
     job_date = models.DateField()
     steps = ArrayField(ArrayField(models.FloatField(), size=2))
     googlelink=models.TextField(max_length=2048, default='',blank=True)
